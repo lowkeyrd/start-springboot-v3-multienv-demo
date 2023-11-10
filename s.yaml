@@ -21,9 +21,6 @@ access: 'fc_cn'
 # 使用多环境的yaml
 env: ./env.yaml 
 
-vars:
-  region: 'cn-hangzhou' # 指定一个默认region，通过环境部署时会自动替换成环境所在region
-
 actions: # 全局构建，只需要构建一次
   pre-deploy:
     - run: mvn package -DskipTests
@@ -38,12 +35,12 @@ flow:
   alias: # 并行更新每个函数的别名
     - [ api_1, api_2 ]
 
+# s.yaml：关注研发视角，维护基线的业务配置，网络等基础设施配置挪到env.yaml中单独管理，研发不需要关注env.yaml
 resources:
   api_1:
     component: fc3
     actions:
     props:
-      region: ${vars.region}
       description: Serverless Devs Web Framework Function
       runtime: custom
       memorySize: 1024
@@ -72,7 +69,6 @@ resources:
    # 更多命令可参考：https://github.com/devsapp/fc3/blob/master/docs/zh/readme.md#文档相关
     component: fc3
     props:
-      region: ${vars.region}
       description: Serverless Devs Web Framework Function
       runtime: custom
       memorySize: 1024
@@ -98,7 +94,6 @@ resources:
   fc3_domain_0:
     component: fc3-domain
     props:
-      region: ${vars.region}
       domainName: auto
       protocol: HTTP
       routeConfig:
