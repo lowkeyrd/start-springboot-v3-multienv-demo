@@ -16,16 +16,32 @@ name: web-framework-app
 # access 是当前应用所需要的密钥信息配置：
 # 密钥配置可以参考：https://www.serverless-devs.com/serverless-devs/command/config
 # 密钥使用顺序可以参考：https://www.serverless-devs.com/serverless-devs/tool#密钥使用顺序与规范
-access: 'undefined'
+access: 'fc_cn'
+
+# 使用多环境的yaml
+env: ./env.yaml 
+
 vars:
-  region: 'cn-hangzhou'
+  region: 'cn-hangzhou' # 指定一个默认region，通过环境部署时会自动替换成环境所在region
+
+actions: # 全局构建，只需要构建一次
+  pre-deploy:
+    - run: mvn package -DskipTests
+      path: ./code
+
+flow:
+  deploy: # 函数并行部署，域名依赖函数不熟完成
+    - [ api_1, api_2 ]
+    - [ fc3_domain_0 ]
+  version: # s version 并行对函数发版本
+    - [ api_1, api_2 ]
+  alias: # 并行更新每个函数的别名
+    - [ api_1, api_2 ]
+
 resources:
-  framework:
+  api_1:
     component: fc3
     actions:
-      pre-deploy:
-        - run: mvn package -DskipTests
-          path: ./code
     props:
       region: ${vars.region}
       description: Serverless Devs Web Framework Function
@@ -36,8 +52,49 @@ resources:
       customRuntimeConfig:
         command:
           - ./bootstrap
-      functionName: 'springboot-undefined'
+      functionName: 'springboot-api-1'
       code: ./code
+      triggers:
+        - triggerName: httpTrigger # 触发器名称
+          triggerType: http # 触发器类型
+          description: 'xxxx'
+          # qualifier: test # 触发服务的版本
+          triggerConfig:
+            authType: anonymous # 鉴权类型，可选值：anonymous、function
+            disableURLInternet: false # 是否禁用公网访问 URL
+            methods: # HTTP 触发器支持的访问方法，可选值：GET、POST、PUT、DELETE、HEAD
+              - GET
+              - POST
+  api_2: # 第二个函数的案例，仅供参考
+   # 如果在当前项目下执行 s deploy，会同时部署模块
+   # 如果想单独部署当前服务与函数，可以执行 s + 模块名/业务名 + deploy，例如：s next_function deploy
+   # 如果想单独部署当前函数，可以执行 s + 模块名/业务名 + deploy function，例如：s next_function deploy function
+   # 更多命令可参考：https://github.com/devsapp/fc3/blob/master/docs/zh/readme.md#文档相关
+    component: fc3
+    props:
+      region: ${vars.region}
+      description: Serverless Devs Web Framework Function
+      runtime: custom
+      memorySize: 1024
+      timeout: 30
+      instanceConcurrency: 100
+      customRuntimeConfig:
+        command:
+          - ./bootstrap
+      functionName: 'springboot-api-2'
+      code: ./code
+      triggers:
+        - triggerName: httpTrigger # 触发器名称
+          triggerType: http # 触发器类型
+          description: 'xxxx'
+          # qualifier: test # 触发服务的版本
+          triggerConfig:
+            authType: anonymous # 鉴权类型，可选值：anonymous、function
+            disableURLInternet: false # 是否禁用公网访问 URL
+            methods: # HTTP 触发器支持的访问方法，可选值：GET、POST、PUT、DELETE、HEAD
+              - GET
+              - POST
+
   fc3_domain_0:
     component: fc3-domain
     props:
@@ -46,5 +103,9 @@ resources:
       protocol: HTTP
       routeConfig:
         routes:
-          - path: /*
-            functionName: 'springboot-undefined'
+          - path: /
+            functionName: ${resources.api_1.props.functionName}
+            # qualifier:  test
+          - path: /fcheaders
+            functionName: ${resources.api_2.props.functionName}
+            # qualifier:  test
